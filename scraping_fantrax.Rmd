@@ -201,4 +201,46 @@ curl_download(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=v
 
 Success!
 
-Now we just dynamically 
+```{r}
+res <- curl_fetch_memory(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1", handle = fantrax_handle)
+
+rawToChar(res$content) %>%
+    read_csv()
+```
+
+```{r}
+curl_fetch_memory(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1", handle = fantrax_handle)$content %>%
+    rawToChar() %>%
+    read_csv()
+```
+
+
+Now let's setup a dataframe will all our combinations for scraping.
+
+```{r}
+all_codes <- seasonOrProjection %>%
+    left_join(all_seasons, by = c("year"))
+
+all_groups <- map_df(positionOrGroup, function(x, df){mutate(df, group = x)}, df = all_codes)
+```
+
+And our single combination scraping function
+
+```{r}
+scrape_fantrax <- function(year, code, start_date, end_date, week_no, group, handle) {
+    require(glue, dplyr, curl, readr)
+    dest_file <- file.path(here::here("data"), glue("Fantrax-players-{year}-week-{week_no}-{group}.csv"))
+    dl_url <- glue("https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup={group}&","seasonOrProjection={code}&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate={start_date}&endDate={end_date}&searchName=&txs=false&teamId=ojolt2upjjxmu6b1")
+    curl_download(url = dl_url,
+                  destfile = dest_file,
+                  handle = handle)
+    Sys.sleep(5)
+}
+```
+
+```{r}
+all_groups %>%
+    pwalk(scrape_fantrax, handle = fantrax_handle)
+```
+
+walk seems to fail, even with sleep function. Looks like we'll need to batch
