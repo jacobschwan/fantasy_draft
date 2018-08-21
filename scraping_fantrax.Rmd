@@ -1,0 +1,143 @@
+---
+title: "Scraping Fantrax"
+output: html_notebook
+---
+
+```{r}
+pacman::p_load(tidyverse)
+```
+
+
+Fantrax offers 10 years of player stats along with preseason projections.  Their site is rendered via javascript, but
+offers the ability to download player stats as CSV file.  Below is an example link to pull a CSV for the first week of
+games in 2017:
+
+>   https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1
+
+The goal is to download week by week player stats for at least the last 5 years. To do this we'll need to manipluate the
+above URL and use something like curl to download and name each resulting CSV file.  Let's look at the possible variables.
+
+**leagueID**
+**positionOrGroup**
+**seasonOrProjection**
+**timeframeTypeCode**
+**statusOrTeamFilter**
+**scoringCategoryType**
+**timeStartType**
+**pageNumber**
+**schedulePageAdj**
+**startDate**
+**endDate**
+**searchName**
+**txs**
+**teamID**
+
+To start, we'll focus on positionOrGroup, seasonOrProjection, startDate, & endDate.
+
+```{r}
+positionOrGroup <- c("FOOTBALL_OFFENSE", "FOOTBALL_DEFENSE", "FOOTBALL_TEAM_DEFENSE_SPECIAL_TEAMS")
+seasonOrProjection <- data_frame(year = seq(from = 2017, to = 2007, by = -1),
+                                 code = c("SEASON_50k_BY_DATE",
+                                          "SEASON_50j_BY_DATE",
+                                          "SEASON_50i_BY_DATE",
+                                          "SEASON_50h_BY_DATE",
+                                          "SEASON_50g_BY_DATE",
+                                          "SEASON_50f_BY_DATE",
+                                          "SEASON_50e_BY_DATE",
+                                          "SEASON_50d_BY_DATE",
+                                          "SEASON_50c_BY_DATE",
+                                          "SEASON_50a_BY_DATE",
+                                          "SEASON_508_BY_DATE"))
+```
+
+For start and end date, we'll need to calculate each regualr season week for each year.  There are 13 weeks in the 
+regular season, starting with the week before labor day (generally the last week of August).
+Each week will run from Tuesday to the following Monday.  We'll need to start by determining the last Tuesday in August 
+for a given year.
+
+```{r}
+pacman::p_load(lubridate)
+
+#Set year
+year <- 2014
+
+#Find last day of August
+
+end_of_aug <- ymd(paste(year,"08","31", sep = "-"))
+
+#Find the Tuesday nearest the last day of August
+
+week_1_start <- floor_date(end_of_aug, "week") + days(2)
+
+#If 8/31 is on a Sunday, our week_1_start will end up after Labor Day (the first Monday of September). We can adjust as
+#follows
+
+if(wday(end_of_aug) == 1) {
+    week_1_start = week_1_start - days(7)
+}
+
+week_1_start
+wday(week_1_start, label = T)
+```
+
+Let's turn the above code into a function
+
+```{r}
+season_start <- function(year) {
+    require(lubridate)
+    
+    #Find last day of August
+
+    end_of_aug <- ymd(paste(year,"08","31", sep = "-"))
+
+    #Find the Tuesday nearest the last day of August
+
+    week_1_start <- floor_date(end_of_aug, "week") + days(2)
+    
+    #Adjust for 8/31 on a Sunday
+    
+    if(wday(end_of_aug) == 1) {
+       week_1_start = week_1_start - days(7)
+    }
+    
+    return(week_1_start)
+}
+
+season_start(2018)
+season_start(2014)
+```
+
+We can now build a data frame with the start and end date of each week for each year. We'll use seq.Date to set the week
+start dates.
+
+```{r}
+seq.Date(from = season_start(2018), to = season_start(2018) + weeks(12), by = "week")
+```
+
+```{r}
+build_season <- function(year) {
+    require(lubridate, dplyr)
+    
+    season <- data_frame(start_date = seq.Date(from = season_start(year),
+                                               to = season_start(year) + weeks(12),
+                                               by = "week")) %>%
+        mutate(end_date = start_date + days(6),
+               week_no = row_number(),
+               year = year)
+    
+    return(season)
+}
+
+build_season(2018)
+```
+
+```{r}
+all_seasons <- map_df(seasonOrProjection$year, build_season)
+all_seasons
+```
+
+```{r}
+seasonOrProjection %>%
+    left_join(all_seasons, by = c("year"))
+```
+
