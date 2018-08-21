@@ -141,3 +141,64 @@ seasonOrProjection %>%
     left_join(all_seasons, by = c("year"))
 ```
 
+Test downloading CSV files
+
+```{r}
+pacman::p_load(curl)
+```
+
+
+```{r}
+curl::curl_download(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1",
+                    destfile = "test.csv")
+```
+
+This failed because we were not logged into the website.
+
+To get around this, we'll log into Fantrax and then copy the cookie information into a curl handle.  Googling revealed 
+this curl command from Github user daveberman:
+
+Code from Github daveberman/fantrax-scraper
+
+>curl "http://www.fantrax.com/" 
+
+>     -H "Accept-Encoding: gzip, deflate, sdch" 
+
+>     -H "Accept-Language: en-US,en;q=0.8" 
+
+>     -H "User-Agent: Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.65 
+Safari/537.36" 
+
+>     -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" 
+
+>     -H "Cache-Control: max-age=0" 
+
+>     -H "Cookie: uig=acgtszvii7e3wdjc; uac=ycza5clii7e3wdjd; ui=pa5y4yk7i74tcfyh; BAYEUX_BROWSER=9cf0-15gjjos4eant8i7kppbjpv00; __utmt=1; __utma=221131663.1812537929.1426645516.1432428782.1432432096.161; __utmb=221131663.19.10.1432432096; __utmc=221131663; __utmz=221131663.1426645516.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); JSESSIONID=1ap4v6rc8c9g4o0qxvtzocgz4; FANTRAX_REMEMBERS=""ZGJiODE3OjE3NDc3OTQ0NTk1NDk6MzExMjZiZTQxNjRiNGM1NjM4M2ZiY2U5MWQ3YTc1NzM=""" 
+
+>    -H "Connection: keep-alive" --compressed
+
+
+We'll load in the cookie infromation with the fantrax specfic element from our cookie.
+
+```{r}
+fantrax_handle <- new_handle()
+handle_setheaders(fantrax_handle,
+                  "Accept-Encoding" = "gzip, deflate, sdch",
+                  "Accept-Language" = "en-Us,en;q=0.8",
+                  "User_Agent" = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.65 Safari/537.36",
+                  "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                  "Cache-Control" = "max-age=0",
+                  "Connection" = "keep-alive",
+                  "Cookie" = 'uig=cgy86l6tjl3rqi4h; uac=10n79abojl3rqi4h; ui=wjy9qxvijjz4kho0; BAYEUX_BROWSER=abxcgtep2w1jr6bq;JSESSIONID=node0lvyebaf8egfi1qw3aufto92tk9809.node0; FX_REM=anNjaHdhbjoxODUwMjM1NzI5NDM5OjMzMjM1NmYzMWQ4YjdmNGM0N2Y3NzgxNTYzZDY5NTFk; _ga=GA1.2.1427721507.1534859530; _gid=GA1.2.1623411655.1534859530')
+```
+
+
+```{r}
+curl_download(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1",
+                    destfile = "test.csv",
+              handle = fantrax_handle)
+```
+
+Success!
+
+Now we just dynamically 
