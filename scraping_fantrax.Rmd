@@ -238,9 +238,38 @@ scrape_fantrax <- function(year, code, start_date, end_date, week_no, group, han
 }
 ```
 
-```{r}
+```{r, eval = F}
 all_groups %>%
     pwalk(scrape_fantrax, handle = fantrax_handle)
 ```
 
 walk seems to fail, even with sleep function. Looks like we'll need to batch
+
+Let's try an alternative...
+```{r}
+all_filenames <- all_groups %>% 
+    mutate(dest_file = file.path(here::here("data"), glue::glue("Fantrax-players-{year}-week-{week_no}-{group}.csv")))
+```
+
+```{r}
+file.exists(all_filenames$dest_file)
+```
+
+```{r}
+scrape_fantrax_2 <- function(year, code, start_date, end_date, week_no, group, dest_file, handle) {
+    require(glue, dplyr, curl, readr)
+    dl_url <- glue("https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup={group}&","seasonOrProjection={code}&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate={start_date}&endDate={end_date}&searchName=&txs=false&teamId=ojolt2upjjxmu6b1")
+    curl_download(url = dl_url,
+                  destfile = dest_file,
+                  handle = handle)
+    print(paste(year, week_no, dest_file))
+}
+
+while (sum(!file.exists(all_filenames$dest_file)) != 0) {
+     all_filenames %>%
+         filter(!(file.exists(dest_file))) %>%
+         pwalk(scrape_fantrax_2, handle = fantrax_handle)
+     Sys.sleep(10)
+}
+```
+
