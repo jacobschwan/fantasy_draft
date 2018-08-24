@@ -148,7 +148,7 @@ pacman::p_load(curl)
 ```
 
 
-```{r}
+```{r, eval = F}
 curl::curl_download(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1",
                     destfile = "test.csv")
 ```
@@ -193,7 +193,7 @@ handle_setheaders(fantrax_handle,
 ```
 
 
-```{r}
+```{r, eval = F}
 curl_download(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1",
                     destfile = "test.csv",
               handle = fantrax_handle)
@@ -201,14 +201,14 @@ curl_download(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=v
 
 Success!
 
-```{r}
+```{r, eval = F}
 res <- curl_fetch_memory(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1", handle = fantrax_handle)
 
 rawToChar(res$content) %>%
     read_csv()
 ```
 
-```{r}
+```{r, eval = F}
 curl_fetch_memory(url = "https://www.fantrax.com/fxpa/downloadPlayerStats?leagueId=vbt60a7tjjwzjtxa&positionOrGroup=FOOTBALL_OFFENSE&seasonOrProjection=SEASON_50k_BY_DATE&timeframeTypeCode=BY_DATE&statusOrTeamFilter=ALL_AVAILABLE&scoringCategoryType=5&timeStartType=PERIOD_ONLY&pageNumber=1&schedulePageAdj=0&startDate=2017-08-29&endDate=2017-09-03&searchName=&txs=false&teamId=ojolt2upjjxmu6b1", handle = fantrax_handle)$content %>%
     rawToChar() %>%
     read_csv()

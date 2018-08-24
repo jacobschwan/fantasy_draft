@@ -1,0 +1,115 @@
+---
+title: "Building Value Above Replacement"
+output: html_notebook
+---
+
+```{r}
+pacman::p_load(tidyverse, here, stringr, janitor)
+```
+
+# Load Data
+
+## Offense
+
+Read file names and extract year and week data.
+
+```{r}
+offense_files <- data_frame(files = list.files(here("data"), 
+                                               pattern = "FOOTBALL_OFFENSE",
+                                               full.names = T),
+                            file_name = list.files(here("data"), 
+                                               pattern = "FOOTBALL_OFFENSE")) %>%
+    mutate(year = str_extract(file_name, "[[:digit:]]{4}"),
+           week = as.integer(gsub("-", "", str_extract(file_name, "-[[:digit:]]{1,2}-"))),
+           group = "offense") %>%
+    select(-file_name)
+
+offense_files
+```
+
+Create function to read files that we can run through map_df 
+
+```{r}
+read_fantrax <- function(files, year, week, group) {
+    read_csv(files) %>%
+        mutate(season = year,
+               week = week,
+               group = group)
+}
+```
+
+Read in all offensive files
+
+```{r}
+offense <- offense_files %>%
+    pmap_df(read_fantrax) %>%
+    clean_names()
+
+offense
+```
+
+```{r}
+max_pos <- max(str_count(offense$position, ",")) + 1
+
+offense_1 <- offense %>%
+    separate(position, paste("position", seq(1:max_pos), sep = "_"), sep = ",")
+
+offense_1
+```
+
+
+
+```{r}
+off_avg_by_year <- offense_1 %>%
+    filter(!(bye == week), gp > 0) %>%
+    group_by(season, position_1, player) %>%
+    summarise(total_fpts = sum(fpts),
+              avg_fp_g = mean(fpts))
+
+off_avg_by_year
+```
+
+```{r}
+avg_off_players <- off_avg_by_year %>%
+    ungroup() %>%
+    group_by(position_1) %>%
+    summarise(median_fpts = median(total_fpts),
+              median_fpts_g = median(avg_fp_g))
+
+avg_off_players
+```
+
+```{r}
+projections <- read_csv(here("data/Fantrax-players-2018-projection-all.csv")) %>%
+    clean_names()
+
+max_pos <- max(str_count(projections$position, ",")) + 1
+
+projections_1 <- projections %>%
+    separate(position, paste("position", seq(1:max_pos), sep = "_"), sep = ",")
+
+projections_1
+```
+
+```{r}
+projections_1 %>%
+    select(player, team, position_1, fpts, fp_g) %>%
+    inner_join(avg_off_players) %>%
+    mutate(var_fpts = fpts - median_fpts,
+           var_fp_g = fp_g - median_fpts_g) %>%
+    arrange(desc(var_fpts))
+```
+
+```{r}
+off_avg_by_year %>%
+    ungroup() %>%
+    ggplot(aes(x = position_1, y = total_fpts)) +
+    geom_boxplot()
+```
+
+```{r}
+off_avg_by_year %>%
+    arrange(desc(total_fpts))
+```
+
+We're over adding our totals!!!
