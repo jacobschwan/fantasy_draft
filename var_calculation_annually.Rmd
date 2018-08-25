@@ -1,0 +1,179 @@
+---
+title: "Calculate Value Above Replacement based on Season Data"
+output: html_notebook
+---
+
+```{r}
+pacman::p_load(tidyverse, here, janitor)
+```
+
+```{r}
+data_files <- data_frame(file_path = list.files(here("data"),
+                                                pattern = "Fantrax-players-[[:digit:]]{4}-all.csv",
+                                                full.names = T)) %>%
+    mutate(filename = basename(file_path)) %>%
+    mutate(season = as.numeric(str_extract(filename, pattern = "[[:digit:]]{4}"))) %>%
+    select(-filename)
+
+data_files
+```
+
+```{r}
+read_fantrax_players <- function(file_path, season) {
+    read_csv(file_path) %>%
+        mutate(season = season)
+}
+
+player_data <- data_files %>%
+    pmap_df(read_fantrax_players) %>%
+    clean_names()
+    
+
+player_data
+```
+
+```{r}
+max_pos <- max(str_count(player_data$position, ",")) + 1
+
+player_data_1 <- player_data %>%
+    separate(position, paste("position", seq(1:max_pos), sep = "_"))
+
+player_data_1
+```
+
+
+```{r}
+player_data_1 %>%
+    filter(fp_g > 0) %>%
+    ggplot(aes(x = position_1, y = fp_g)) +
+    geom_boxplot()
+```
+
+Strategy Notes: Start with a good team defense, then QB, K, RB
+
+```{r}
+average_player <- player_data_1 %>%
+    filter(fp_g > 0) %>%
+    group_by(position_1) %>%
+    summarise(median_fpts = median(fpts),
+              median_fp_g = median(fp_g))
+
+average_player
+```
+
+Load in Projections
+
+```{r}
+projection_data <- read_csv(here("data/Fantrax-players-2018-projection-all.csv")) %>%
+    mutate(season = 2018) %>%
+    clean_names()
+
+max_pos <- max(str_count(projection_data$position, ",")) + 1
+
+projection_data_1 <- projection_data %>%
+    separate(position, paste("position", seq(1:max_pos), sep = "_"))
+
+projection_data_1
+```
+
+```{r}
+projection_var <- projection_data_1 %>%
+    select(player, team, position_1, year, rk, fpts, fp_g, season) %>%
+    left_join(average_player) %>%
+    mutate(var_fpts = fpts - median_fpts,
+           var_fp_g = fp_g - median_fp_g) %>%
+    select(player, team, position_1, var_fpts, var_fp_g, everything())
+
+projection_var
+```
+
+```{r}
+projection_var %>%
+    arrange(desc(var_fp_g)) %>%
+    group_by(position_1) %>%
+    mutate(var_rk = row_number()) %>%
+    arrange(position_1, var_rk) %>%
+    filter(var_rk < 8)
+    
+```
+
+# Draft Needs
+
+QB: 3
+RB: 4
+WR: 4
+TE: 2
+FLX: 2
+DL: 2
+LB: 2
+DB: 2
+K: 3
+DST: 3
+
+
+```{r}
+def_var_2017 <- player_data_1 %>%
+    filter(season == 2017, position_1 %in% c("DL", "LB", "DB")) %>%
+    select(player, team, position_1, year, rk, fpts, fp_g, season) %>%
+    left_join(average_player) %>%
+    mutate(var_fpts_2017 = fpts - median_fpts,
+           var_fp_g_2017 = fp_g - median_fp_g) %>%
+    select(player, position_1, var_fpts_2017, var_fp_g_2017)
+
+def_var_2017
+```
+
+```{r}
+projection_var_2 <- projection_var %>%
+    left_join(def_var_2017, by = c("player", "position_1")) %>%
+    mutate(var_fpts = ifelse(!is.na(var_fpts_2017), var_fpts_2017, var_fpts),
+           var_fp_g = ifelse(!is.na(var_fp_g_2017), var_fp_g_2017, var_fp_g)) %>%
+    select( -var_fpts_2017, -var_fp_g_2017)
+
+projection_var_2
+```
+
+```{r}
+projection_var_2 %>%
+    arrange(desc(var_fp_g)) %>%
+    filter(position_1 == "DST")
+```
+
+```{r}
+projection_data_dst <- read_csv(here("data/Fantrax-players-2018-projection-DST.csv")) %>%
+    mutate(season = 2018) %>%
+    clean_names()
+
+projection_data_dst
+```
+
+```{r}
+projection_var_dst <- projection_data_dst %>%
+    select(player, team, position_1 = position, rk, fpts, fp_g, season) %>%
+    left_join(average_player) %>%
+    mutate(var_fpts = fpts - median_fpts,
+           var_fp_g = fp_g - median_fp_g) %>%
+    select(player, team, position_1, var_fpts, var_fp_g, everything())
+    
+```
+
+```{r}
+projection_var_all <- projection_var_2 %>%
+    bind_rows(projection_var_dst)
+
+projection_var_all %>%
+    arrange(desc(var_fp_g)) %>%
+    View()
+```
+
+Export Player Rankings
+
+```{r}
+projection_var_all %>%
+    filter(var_fp_g >= 0) %>%
+    arrange(desc(var_fp_g)) %>%
+    #mutate(player = ifelse(position_1 == "DST", paste(player, "-", "DST"), player)) %>%
+    select(player, team) %>%
+    write_csv(here(glue::glue("player_var_rank_{Sys.Date()}.csv")))
+```
+
